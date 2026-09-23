@@ -27,7 +27,8 @@ def test_private_playlist_rls_role_guard_and_concurrent_play_rollup() -> None:
     app_factory = sessionmaker(bind=app_engine, expire_on_commit=False)
     own_user_id, other_user_id, song_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     own_playlist_id, other_playlist_id = uuid.uuid4(), uuid.uuid4()
-    song_external_id = f"rls-test-{song_id}"
+    # Keep this Jamendo fixture ID within songs.jamendo_track_id VARCHAR(40).
+    song_external_id = f"rls-{song_id.hex}"
     try:
         with owner_factory() as owner:
             owner.add_all([
