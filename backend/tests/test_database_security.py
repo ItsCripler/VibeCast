@@ -33,6 +33,11 @@ def test_private_playlist_rls_role_guard_and_concurrent_play_rollup() -> None:
             owner.add_all([
                 User(id=own_user_id, name="RLS test one", email=f"{own_user_id}@example.invalid", role="listener"),
                 User(id=other_user_id, name="RLS test two", email=f"{other_user_id}@example.invalid", role="listener"),
+            ])
+            # There are no ORM relationships between these models, so explicitly
+            # flush referenced users before inserting playlists with owner FKs.
+            owner.flush()
+            owner.add_all([
                 Song(id=song_id, source="jamendo", jamendo_track_id=song_external_id,
                      title="RLS fixture", artist_name="Test fixture", duration_seconds=90,
                      tags=[], jamendo_musicinfo={}, is_public=True),
