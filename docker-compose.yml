@@ -1,0 +1,94 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vibecast}
+      POSTGRES_USER: ${POSTGRES_USER:-vibecast_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      VIBECAST_APP_DB_PASSWORD: ${VIBECAST_APP_DB_PASSWORD:?Set VIBECAST_APP_DB_PASSWORD in .env}
+    volumes:
+      - vibecast_pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        INSTALL_ESSENTIA: ${INSTALL_ESSENTIA:-false}
+    environment:
+      VIBECAST_ENVIRONMENT: ${VIBECAST_ENVIRONMENT:-development}
+      VIBECAST_DATABASE_URL: postgresql+psycopg://vibecast_app:${VIBECAST_APP_DB_PASSWORD}@db:5432/${POSTGRES_DB:-vibecast}
+      VIBECAST_DATABASE_MIGRATION_URL: postgresql+psycopg://${POSTGRES_USER:-vibecast_owner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vibecast}
+      VIBECAST_JWT_SECRET: ${VIBECAST_JWT_SECRET:?Set VIBECAST_JWT_SECRET in .env}
+      VIBECAST_COOKIE_SECURE: ${VIBECAST_COOKIE_SECURE:-false}
+      VIBECAST_FRONTEND_URL: ${VIBECAST_FRONTEND_URL:-http://localhost:5173}
+      VIBECAST_ALLOWED_ORIGINS: ${VIBECAST_ALLOWED_ORIGINS:-http://localhost:5173}
+      VIBECAST_GOOGLE_CLIENT_ID: ${VIBECAST_GOOGLE_CLIENT_ID:-}
+      VIBECAST_GOOGLE_CLIENT_SECRET: ${VIBECAST_GOOGLE_CLIENT_SECRET:-}
+      VIBECAST_GOOGLE_REDIRECT_URI: ${VIBECAST_GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/auth/google/callback}
+      VIBECAST_JAMENDO_CLIENT_ID: ${VIBECAST_JAMENDO_CLIENT_ID:-}
+      VIBECAST_JAMENDO_MAX_TRACKS: ${VIBECAST_JAMENDO_MAX_TRACKS:-1000}
+      VIBECAST_JAMENDO_PAGE_SIZE: ${VIBECAST_JAMENDO_PAGE_SIZE:-100}
+      VIBECAST_JAMENDO_SEARCH_QUERIES: ${VIBECAST_JAMENDO_SEARCH_QUERIES:-}
+      VIBECAST_UPLOAD_DIRECTORY: /data/uploads
+    volumes:
+      - vibecast_uploads:/data/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        INSTALL_ESSENTIA: ${INSTALL_ESSENTIA:-false}
+    environment:
+      VIBECAST_ENVIRONMENT: ${VIBECAST_ENVIRONMENT:-development}
+      VIBECAST_DATABASE_URL: postgresql+psycopg://vibecast_app:${VIBECAST_APP_DB_PASSWORD}@db:5432/${POSTGRES_DB:-vibecast}
+      VIBECAST_DATABASE_MIGRATION_URL: postgresql+psycopg://${POSTGRES_USER:-vibecast_owner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vibecast}
+      VIBECAST_JWT_SECRET: ${VIBECAST_JWT_SECRET:?Set VIBECAST_JWT_SECRET in .env}
+      VIBECAST_JAMENDO_CLIENT_ID: ${VIBECAST_JAMENDO_CLIENT_ID:-}
+      VIBECAST_JAMENDO_MAX_TRACKS: ${VIBECAST_JAMENDO_MAX_TRACKS:-1000}
+      VIBECAST_JAMENDO_PAGE_SIZE: ${VIBECAST_JAMENDO_PAGE_SIZE:-100}
+      VIBECAST_JAMENDO_SEARCH_QUERIES: ${VIBECAST_JAMENDO_SEARCH_QUERIES:-}
+      VIBECAST_UPLOAD_DIRECTORY: /data/uploads
+    volumes:
+      - vibecast_uploads:/data/uploads
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["python", "-m", "app.worker.main"]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  vibecast_pgdata:
+  vibecast_uploads:

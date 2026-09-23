@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: vibecast
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vibecast"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      VIBECAST_ENVIRONMENT: test
+      VIBECAST_DATABASE_URL: postgresql+psycopg://vibecast_app:app-password@localhost:5432/vibecast
+      VIBECAST_DATABASE_MIGRATION_URL: postgresql+psycopg://postgres:postgres@localhost:5432/vibecast
+      VIBECAST_JWT_SECRET: ci-test-secret-with-more-than-thirty-two-characters
+      VIBECAST_RUN_DATABASE_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend
+        run: python -m pip install -e "backend[dev]"
+      - name: Create runtime role
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d vibecast -v ON_ERROR_STOP=1 -c "CREATE ROLE vibecast_app LOGIN PASSWORD 'app-password' NOSUPERUSER NOBYPASSRLS"
+      - name: Apply migration
+        working-directory: backend
+        run: alembic upgrade head
+      - name: Backend tests
+        working-directory: backend
+        run: python -m pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm run build
+      - name: Frontend tests
+        working-directory: frontend
+        run: pnpm test
