@@ -40,6 +40,7 @@ services:
       VIBECAST_UPLOAD_DIRECTORY: /data/uploads
     volumes:
       - vibecast_uploads:/data/uploads
+      - ./backend/app:/srv/vibecast/app
     ports:
       - "8000:8000"
     depends_on:
@@ -72,6 +73,7 @@ services:
       VIBECAST_UPLOAD_DIRECTORY: /data/uploads
     volumes:
       - vibecast_uploads:/data/uploads
+      - ./backend/app:/srv/vibecast/app
     depends_on:
       api:
         condition: service_healthy

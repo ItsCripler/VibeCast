@@ -191,7 +191,8 @@ class CatalogSyncService:
             ]).on_conflict_do_nothing(index_elements=[Job.idempotency_key])
             self.db.execute(stmt)
 
-        statuses = dict(self.db.execute(select(Song.id, Song.analysis_status).where(Song.id.in_(internal_ids))))
+        statuses = {song_id: status for song_id, status in
+                    self.db.execute(select(Song.id, Song.analysis_status).where(Song.id.in_(internal_ids)))}
         track_by_internal_id = {song_ids[external_id]: track for external_id, track in
                                 ((track.track_id, track) for track in tracks)}
         analysis_jobs = []
