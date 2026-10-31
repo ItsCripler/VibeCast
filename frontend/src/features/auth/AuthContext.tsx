@@ -11,7 +11,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const query = useQuery({ queryKey: ["current-user"], queryFn: () => apiGet<User>("/auth/me"), retry: false, staleTime: 60_000 });
   const refresh = async () => { await client.invalidateQueries({ queryKey: ["current-user"] }); };
   const logout = async () => {
-    try { await apiPost<void>("/auth/logout"); } finally { await client.setQueryData(["current-user"], null); }
+    try { await apiPost<void>("/auth/logout"); } finally { client.clear(); }
   };
   const value: AuthValue = { user: query.data || null, loading: query.isPending, refresh, logout };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

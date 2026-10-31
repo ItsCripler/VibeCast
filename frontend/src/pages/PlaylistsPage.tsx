@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Disc3, LockKeyhole, Plus, Sparkles, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../lib/api";
 import { TrackCard } from "../components/TrackCard";
 import type { PlaylistSummary } from "../types";
@@ -26,7 +27,7 @@ export function PlaylistsPage() {
           const queue = playlist.songs.map((item) => item.song);
           return <article className="playlist-panel" key={playlist.id}>
             <div className="playlist-panel-head"><div className="playlist-cover"><Disc3 size={28} /><i /></div><div className="playlist-metadata"><div className="section-kicker">{playlist.generation_type === "vibe" ? <><Sparkles size={12} /> GENERATED FROM A VIBE</> : playlist.generation_type === "weekly" ? <><Sparkles size={12} /> THIS WEEK</> : "YOUR MIX"}</div><h2>{playlist.name}</h2><p>{playlist.original_prompt || `${playlist.songs.length} tracks`}</p></div><span className="visibility-pill">{playlist.is_public ? <><Users size={12} /> Public</> : <><LockKeyhole size={12} /> Private</>}</span></div>
-            {playlist.songs.length ? <div className="track-grid">{playlist.songs.map((item) => <TrackCard key={item.song.id} song={item.song} queue={queue} score={item.relevance_score ?? undefined} playlistId={playlist.id} />)}</div> : <div className="playlist-empty"><p>This playlist is ready for a few tracks.</p><a href="/">Explore the catalog</a></div>}
+            {playlist.songs.length ? <div className="track-grid">{playlist.songs.map((item) => <TrackCard key={item.song.id} song={item.song} queue={queue} score={item.relevance_score ?? undefined} playlistId={playlist.id} />)}</div> : <div className="playlist-empty"><p>This playlist is ready for a few tracks.</p><Link to="/">Explore the catalog</Link></div>}
           </article>;
         })}
       </div> : <div className="empty-state"><div className="empty-icon"><Disc3 size={23} /></div><h3>Your first playlist is one feeling away</h3><p>Generate a vibe playlist on Discover or create a playlist above and add real catalog tracks.</p></div>}
