@@ -131,8 +131,12 @@ def stream_artist_upload(song_id: uuid.UUID, user: OptionalUser, db: Session = D
     song = db.scalar(select(Song).where(Song.id == song_id, Song.source == "artist_upload"))
     if song is None:
         raise HTTPException(status_code=404, detail="Uploaded song not found")
-    if not song.is_public and (user is None or song.artist_profile_id is None):
-        raise HTTPException(status_code=404, detail="Uploaded song not found")
+    if not song.is_public:
+        if user is None or song.artist_profile_id is None:
+            raise HTTPException(status_code=404, detail="Uploaded song not found")
+        profile = db.scalar(select(ArtistProfile).where(ArtistProfile.id == song.artist_profile_id))
+        if profile is None or profile.user_id != user.id:
+            raise HTTPException(status_code=404, detail="Uploaded song not found")
     root = Path(settings.upload_directory).resolve()
     try:
         path = Path(song.upload_path or "").resolve()

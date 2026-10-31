@@ -42,7 +42,16 @@ def _playlist_out(db: Session, playlist: Playlist) -> PlaylistOut:
 
 @router.get("", response_model=list[PlaylistOut])
 def list_playlists(user: OptionalUser, db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=100)):
-    playlists = db.scalars(select(Playlist).order_by(Playlist.updated_at.desc()).limit(limit)).all()
+    if user:
+        playlists = db.scalars(
+            select(Playlist).where(Playlist.owner_id == user.id)
+            .order_by(Playlist.updated_at.desc()).limit(limit)
+        ).all()
+    else:
+        playlists = db.scalars(
+            select(Playlist).where(Playlist.is_public.is_(True))
+            .order_by(Playlist.updated_at.desc()).limit(limit)
+        ).all()
     return [_playlist_out(db, playlist) for playlist in playlists]
 
 
@@ -60,6 +69,8 @@ def create_playlist(payload: PlaylistCreate, user: CurrentUser, db: Session = De
 def get_playlist(playlist_id: uuid.UUID, user: OptionalUser, db: Session = Depends(get_db)):
     playlist = db.get(Playlist, playlist_id)
     if playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if not playlist.is_public and (user is None or playlist.owner_id != user.id):
         raise HTTPException(status_code=404, detail="Playlist not found")
     return _playlist_out(db, playlist)
 
