@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db.models import Song, SongEmbedding, SongFeature
 from app.recommendations.embeddings import embed_texts, prompt_tokens
+from app.services.catalog_sync import EMBEDDING_VERSION
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,7 @@ def rank_vibe_songs(db: Session, prompt: str, *, limit: int = 30,
             .join(SongEmbedding, SongEmbedding.song_id == Song.id)
             .outerjoin(SongFeature, SongFeature.song_id == Song.id)
             .where(Song.is_public.is_(True), SongEmbedding.model_name == settings.embedding_model,
-                   SongEmbedding.model_version == "v1")
+                   SongEmbedding.model_version == EMBEDDING_VERSION)
             .order_by(distance.asc()).limit(min(max(limit * 12, 50), 500)))
     candidates = db.execute(stmt).all()
     prompt_words = prompt.lower()

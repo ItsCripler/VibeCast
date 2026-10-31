@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db.models import ItemSimilarity, PlayEvent, Song, SongEmbedding, UserSongStat
 from app.recommendations.embeddings import normalize_vector
+from app.services.catalog_sync import EMBEDDING_VERSION
 
 
 def normalize_scores(values: dict[uuid.UUID, float]) -> dict[uuid.UUID, float]:
@@ -66,7 +67,8 @@ def train_item_similarity(db: Session, *, max_neighbors: int = 50,
                            "score": score, "model_version": version})
     db.execute(delete(ItemSimilarity))
     if values:
-        db.execute(pg_insert(ItemSimilarity).values(values))
+        for offset in range(0, len(values), 1000):
+            db.execute(pg_insert(ItemSimilarity).values(values[offset:offset + 1000]))
     db.commit()
     return len(values)
 
@@ -94,7 +96,7 @@ def recommend_for_user(db: Session, user_id: uuid.UUID, *, limit: int = 20) -> l
         select(UserSongStat, SongEmbedding.vector)
         .join(SongEmbedding, SongEmbedding.song_id == UserSongStat.song_id)
         .where(UserSongStat.user_id == user_id, SongEmbedding.model_name == settings.embedding_model,
-               SongEmbedding.model_version == "v1")
+               SongEmbedding.model_version == EMBEDDING_VERSION)
     ).all()
     history_weights: dict[uuid.UUID, float] = {}
     vectors = []
@@ -114,7 +116,7 @@ def recommend_for_user(db: Session, user_id: uuid.UUID, *, limit: int = 20) -> l
             select(Song.id, distance.label("distance"))
             .join(SongEmbedding, SongEmbedding.song_id == Song.id)
             .where(Song.is_public.is_(True), SongEmbedding.model_name == settings.embedding_model,
-                   SongEmbedding.model_version == "v1")
+                   SongEmbedding.model_version == EMBEDDING_VERSION)
             .order_by(distance.asc()).limit(500)
         )
         content_raw = {song_id: max(0.0, min(1.0, (1.0 - float(dist) + 1.0) / 2.0))
