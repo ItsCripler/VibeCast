@@ -43,6 +43,8 @@ class CatalogPage(BaseModel):
 
 
 class CatalogArtistOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     jamendo_artist_id: str
     name: str

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PlayEventCreate(BaseModel):
@@ -12,6 +12,8 @@ class PlayEventCreate(BaseModel):
 
 
 class PlayEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     song_id: uuid.UUID
     played_at: datetime
